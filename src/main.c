@@ -20,13 +20,17 @@
 
 typedef struct  {
 	unsigned int TextureID;
-	int Size;
-	int Bearing;
+	int Size[2];
+	int Bearing[2];
 	unsigned int Advance;
 }Character;
 
 Character characters[CHAR_LIMIT];
 unsigned int VAO, VBO;
+
+void render_text(const Shader *shader, const char *text,
+				 float x, float y, float scale,
+				 float r, float g, float b);
 
 static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 {
@@ -42,6 +46,7 @@ static void error_callback(int code, const char *description)
 int main(void)
 {
 
+	// --- window init ---
 	glfwSetErrorCallback(error_callback);
 
 	if (!glfwInit())
@@ -71,6 +76,17 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 	printf("OpenGL %d.%d\n", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+	// --- window init ---
+
+
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+
+
+
 
 	Shader text_shader = shader_create("../src/shaders/text.vs", "../src/shaders/text.fs", NULL);
 	if (text_shader.id == 0) return EXIT_FAILURE;
@@ -100,7 +116,7 @@ int main(void)
 	}
 
 	FT_Face face;
-	if (FT_New_Face(ft, "../src/arial-regular-49_ufonts.com.ttf", 0, &face))
+	if (FT_New_Face(ft, "../src/Monocraft.ttf", 0, &face))
 	{
 		fprintf(stderr, "Failed to load font");
 		return EXIT_FAILURE;
@@ -144,8 +160,10 @@ int main(void)
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 			characters[c].TextureID = texture;
-			characters[c].Size = face->glyph->bitmap.width, face->glyph->bitmap.rows;
-			characters[c].Bearing = face->glyph->bitmap.width, face->glyph->bitmap.rows;
+			characters[c].Size[0] = face->glyph->bitmap.width;
+			characters[c].Size[1] = face->glyph->bitmap.rows;
+			characters[c].Bearing[0] = face->glyph->bitmap_left;
+			characters[c].Bearing[1] = face->glyph->bitmap_top;
 			characters[c].Advance = face->glyph->advance.x;
 		}
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -176,6 +194,7 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// draw lol
+		render_text(&text_shader, "One One One", 25.0f, 25.0f, 1.0f, 0.5f, 0.8f, 0.2f);
 		
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -186,5 +205,45 @@ int main(void)
 	glfwTerminate();
 	return EXIT_SUCCESS;
 
+}
+
+
+void render_text(const Shader *shader, const char *text,
+				 float x, float y, float scale,
+				 float r, float g, float b)
+{
+	shader_use(shader);
+	shader_set_vec3(shader, "textColor", r, g, b);
+	glActiveTexture(GL_TEXTURE0);
+	glBindVertexArray(VAO);
+
+	for (const char *c = text; *c != '\0'; c++)
+	{
+		Character ch = characters[(unsigned char)*c];
+		float xpos = x + ch.Bearing[0] * scale;
+		float ypos = y - (ch.Size[1] - ch.Bearing[1]) * scale;
+		float w = ch.Size[0] * scale;
+		float h = ch.Size[1] * scale;
+
+		float vertices[6][4] = {
+			{ xpos,     ypos + h, 0.0f, 0.0f },
+			{ xpos,     ypos,     0.0f, 1.0f },
+			{ xpos + w, ypos,     1.0f, 1.0f },
+
+			{ xpos,     ypos + h, 0.0f, 0.0f },
+			{ xpos + w, ypos,     1.0f, 1.0f },
+			{ xpos + w, ypos + h, 1.0f, 0.0f },
+		};
+
+		glBindTexture(GL_TEXTURE_2D, ch.TextureID);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		x += (ch.Advance >> 6) * scale;
+	}
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
