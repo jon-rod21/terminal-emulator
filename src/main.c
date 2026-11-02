@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pty.h>
+#include <unistd.h>
+#include <poll.h>
+#include <sys/wait.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -17,6 +20,7 @@
 #define MAJOR 4
 #define MINOR 6
 #define CHAR_LIMIT 128
+#define BUF_SIZE 256
 
 typedef struct  {
 	unsigned int TextureID;
@@ -78,7 +82,6 @@ int main(void)
 	printf("OpenGL %d.%d\n", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 	// --- window init ---
 
-
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -96,17 +99,6 @@ int main(void)
 	shader_use(&text_shader);
 	shader_set_mat4(&text_shader, "projection", (float *)projection);
 
-//	int primary_fd;
-//	struct termios termp;
-//	struct winsize winp;
-//
-//
-//	pid_t pid = forkpty(&primary_fd, NULL, &termp, &winp);
-//	if (pid == -1)
-//	{
-//		fprintf(stderr, "Error creating pty");
-//		return EXIT_FAILURE;
-//	}
 
 	FT_Library ft;
 	if (FT_Init_FreeType(&ft))
@@ -184,6 +176,36 @@ int main(void)
 	glBindVertexArray(0);
 
 
+	
+	// start the pty
+	int amaster;
+	struct winsize winp = { .ws_row = 24, .ws_col = 80 };
+
+	pid_t pid = forkpty(&amaster, NULL, NULL, &winp);
+	if (pid < 0)
+	{
+		fprintf(stderr, "Failed to fork");
+		return -1;
+	}
+	if (pid == 0)
+	{
+		execlp("zsh", "zsh", "-f", (char *)NULL);
+		_exit(127);
+	}
+
+	write(amaster, "ls -a\n", 6);
+
+	char buf[BUF_SIZE] = {0};
+	struct pollfd pfd = { .fd = amaster, .events = POLLIN };
+
+	while (poll(&pfd, 1, 500) > 0)
+	{
+		ssize_t n = read(amaster, buf, sizeof(buf));
+		if (n <= 0) break;
+		fwrite(buf, 1, n, stdout);
+	}
+	close(amaster);
+	waitpid(pid, NULL, 0);
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -194,7 +216,7 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// draw lol
-		render_text(&text_shader, "One One One", 25.0f, 25.0f, 1.0f, 0.5f, 0.8f, 0.2f);
+		render_text(&text_shader, buf, 0.0f, 500.0f, 0.3f, 0.5f, 0.8f, 0.2f);
 		
 		glfwSwapBuffers(window);
 		glfwPollEvents();
