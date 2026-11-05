@@ -14,13 +14,14 @@
 #include <cglm/cglm.h>
 
 #include "shaders/shader.h"
+#include "screen.c"
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
 #define MAJOR 4
 #define MINOR 6
 #define CHAR_LIMIT 128
-#define BUF_SIZE 256
+#define BUF_SIZE 4096
 
 typedef struct  {
 	unsigned int TextureID;
@@ -198,30 +199,40 @@ int main(void)
 	char buf[BUF_SIZE] = {0};
 	struct pollfd pfd = { .fd = amaster, .events = POLLIN };
 
-	while (poll(&pfd, 1, 500) > 0)
-	{
-		ssize_t n = read(amaster, buf, sizeof(buf));
-		if (n <= 0) break;
-		fwrite(buf, 1, n, stdout);
-	}
-	close(amaster);
-	waitpid(pid, NULL, 0);
+	Screen screen;
+	screen_init(&screen);
 
 	while (!glfwWindowShouldClose(window))
 	{
+		while (poll(&pfd, 1, 0) > 0)
+		{
+			ssize_t n = read(amaster, buf, sizeof(buf));
+			if (n <= 0) break;
+			//fwrite(buf, 1, n, stdout);
+			for (ssize_t i = 0; i < n; i++)
+				screen_put(&screen, (unsigned char)buf[i]);
+
+		}
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, GLFW_TRUE);
 
 		glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		// draw lol
-		render_text(&text_shader, buf, 0.0f, 500.0f, 0.3f, 0.5f, 0.8f, 0.2f);
+		float y = SCREEN_HEIGHT;
+		for (int r = 0; r < ROWS; r++)
+		{
+			render_text(&text_shader, screen.cells[r], 0.0f, y, 0.3f, 1.0f, 1.0f, 1.0f);
+			y -= 25.0f;
+		}
+
 		
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
 	}
+	close(amaster);
+	waitpid(pid, NULL, 0);
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
