@@ -14,7 +14,7 @@
 #include <cglm/cglm.h>
 
 #include "shaders/shader.h"
-#include "screen.c"
+#include "screen.h"
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600

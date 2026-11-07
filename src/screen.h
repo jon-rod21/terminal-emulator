@@ -6,7 +6,7 @@ typedef struct {
 	int row, col;
 } Screen;
 
-static void screen_init(Screen *s);
-static void screen_scroll(Screen *s);
-static void screen_put(Screen *s, unsigned char c);
+void screen_init(Screen *s);
+void screen_scroll(Screen *s);
+void screen_put(Screen *s, unsigned char c);
 

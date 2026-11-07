@@ -11,7 +11,11 @@ find_package(glfw3 REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(cglm REQUIRED)
 
-add_executable(terminal-emulator src/main.c)
+add_executable(terminal-emulator 
+	src/main.c
+	src/screen.c
+)
+
 target_link_libraries(terminal-emulator PRIVATE 
 	glad glfw Freetype::Freetype cglm
 	${CMAKE_DL_LIBS})
