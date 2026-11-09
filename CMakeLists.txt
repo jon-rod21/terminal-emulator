@@ -13,7 +13,8 @@ find_package(cglm REQUIRED)
 
 add_executable(terminal-emulator 
 	src/main.c
-	src/screen.c
+	src/render.c
+	src/term.c
 )
 
 target_link_libraries(terminal-emulator PRIVATE 
